@@ -103,28 +103,27 @@ const tagAll = () => {
             if ( el.hasAttribute(ATTR) ) { continue; }
             el.setAttribute(ATTR, '...');
             tagged += 1;
+            const runtime = self.chrome?.runtime ?? self.browser?.runtime;
+            if ( !runtime ) { el.setAttribute(ATTR, randomPhrase()); continue; }
             const imgSrc = el.tagName === 'IMG'
                 ? el.src
                 : (el.querySelector('img')?.src ?? '');
-            if ( imgSrc ) {
-                const runtime = self.chrome?.runtime ?? self.browser?.runtime;
-                if ( runtime ) {
-                    runtime.sendMessage(
-                        { type: 'CLASSIFY_AD', imgSrc },
-                        (slogan) => {
-                            if ( runtime.lastError || !slogan ) {
-                                el.setAttribute(ATTR, randomPhrase());
-                            } else {
-                                el.setAttribute(ATTR, slogan);
-                            }
-                        }
-                    );
-                } else {
-                    el.setAttribute(ATTR, randomPhrase());
+            const context = [
+                el.tagName,
+                el.className,
+                el.getAttribute('aria-label') ?? '',
+                el.textContent?.trim().slice(0, 120) ?? '',
+            ].filter(Boolean).join(' | ');
+            runtime.sendMessage(
+                { type: 'CLASSIFY_AD', imgSrc, context },
+                (slogan) => {
+                    if ( runtime.lastError || !slogan ) {
+                        el.setAttribute(ATTR, randomPhrase());
+                    } else {
+                        el.setAttribute(ATTR, slogan);
+                    }
                 }
-            } else {
-                el.setAttribute(ATTR, randomPhrase());
-            }
+            );
         }
     }
     if ( tagged !== 0 ) {
