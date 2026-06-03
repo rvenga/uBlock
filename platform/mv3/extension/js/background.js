@@ -69,6 +69,7 @@ import {
 } from './ext.js';
 
 import {
+    ANTHROPIC_API_KEY,
     defaultConfig,
     loadRulesetConfig,
     process,
@@ -221,7 +222,70 @@ function setDeveloperMode(state) {
 
 /******************************************************************************/
 
+async function classifyAd(imgSrc) {
+    let base64, mediaType;
+    try {
+        const imgResp = await fetch(imgSrc);
+        if ( !imgResp.ok ) { return null; }
+        const ct = imgResp.headers.get('content-type') || 'image/jpeg';
+        mediaType = ct.split(';')[0].trim();
+        if ( !['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(mediaType) ) {
+            mediaType = 'image/jpeg';
+        }
+        const buffer = await imgResp.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        const CHUNK = 0x8000;
+        for ( let i = 0; i < bytes.length; i += CHUNK ) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+        }
+        base64 = btoa(binary);
+    } catch {
+        return null;
+    }
+    try {
+        const apiResp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': ANTHROPIC_API_KEY,
+                'anthropic-version': '2023-06-01',
+            },
+            body: JSON.stringify({
+                model: 'claude-haiku-4-5',
+                max_tokens: 50,
+                system: 'You are a sardonic propaganda slogan writer. Given an ad image, write ONE blunt 1-5 word ALL CAPS slogan exposing its manipulative intent. Reply with JSON only: {"slogan": "YOUR SLOGAN"}',
+                messages: [{
+                    role: 'user',
+                    content: [{
+                        type: 'image',
+                        source: { type: 'base64', media_type: mediaType, data: base64 },
+                    }],
+                }],
+            }),
+        });
+        if ( !apiResp.ok ) { return null; }
+        const data = await apiResp.json();
+        const text = data.content?.[0]?.text ?? '';
+        const parsed = JSON.parse(text);
+        return typeof parsed.slogan === 'string' ? parsed.slogan : null;
+    } catch {
+        return null;
+    }
+}
+
+/******************************************************************************/
+
 function onMessage(request, sender, callback) {
+
+    if ( request.type === 'CLASSIFY_AD' ) {
+        classifyAd(request.imgSrc).then(slogan => {
+            callback(slogan);
+        }).catch(( ) => {
+            callback(null);
+        });
+        return true;
+    }
 
     const tabId = sender?.tab?.id ?? false;
     const frameId = tabId && (sender?.frameId ?? false);

@@ -101,8 +101,30 @@ const tagAll = () => {
         }
         for ( const el of matched ) {
             if ( el.hasAttribute(ATTR) ) { continue; }
-            el.setAttribute(ATTR, randomPhrase());
+            el.setAttribute(ATTR, '...');
             tagged += 1;
+            const imgSrc = el.tagName === 'IMG'
+                ? el.src
+                : (el.querySelector('img')?.src ?? '');
+            if ( imgSrc ) {
+                const runtime = self.chrome?.runtime ?? self.browser?.runtime;
+                if ( runtime ) {
+                    runtime.sendMessage(
+                        { type: 'CLASSIFY_AD', imgSrc },
+                        (slogan) => {
+                            if ( runtime.lastError || !slogan ) {
+                                el.setAttribute(ATTR, randomPhrase());
+                            } else {
+                                el.setAttribute(ATTR, slogan);
+                            }
+                        }
+                    );
+                } else {
+                    el.setAttribute(ATTR, randomPhrase());
+                }
+            } else {
+                el.setAttribute(ATTR, randomPhrase());
+            }
         }
     }
     if ( tagged !== 0 ) {

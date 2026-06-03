@@ -121,7 +121,8 @@ async function fetchText(url, cacheDir) {
     logProgress(`Reading locally cached ${path.basename(url)}`);
     const fname = url
         .replace(/^https?:\/\//, '')
-        .replace(/\//g, '_');(url);
+        .replace(/\//g, '_')
+        .replace(/[?&=#]/g, '_');
     const content = await fs.readFile(
         `${cacheDir}/${fname}`,
         { encoding: 'utf8' }

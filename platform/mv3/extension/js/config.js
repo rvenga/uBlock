@@ -68,3 +68,7 @@ export async function saveRulesetConfig() {
     sessionWrite('rulesetConfig', rulesetConfig);
     return localWrite('rulesetConfig', rulesetConfig);
 }
+
+/******************************************************************************/
+
+export const ANTHROPIC_API_KEY = 'sk-ant-PASTE_YOUR_KEY_HERE';
